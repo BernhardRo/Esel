@@ -1,4 +1,4 @@
- package esel.esel.esel.datareader;
+package esel.esel.esel.datareader;
 
 import android.content.Context;
 import android.database.Cursor;
