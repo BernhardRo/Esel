@@ -301,8 +301,7 @@ public class ReadReceiver extends BroadcastReceiver {
             SGV sgv = valueArray.get(i);
             long oldTime = SP.getLong("lastReadingTime", -1L);
 
-            boolean newValue = oldTime != sgv.timestamp;
-            boolean acceptValue = true;
+            boolean acceptValue = oldTime != sgv.timestamp; //is new value
 
             if(sgv.timestamp - currentTime > (60 * 1000)){
                 //sgv is from future
@@ -317,7 +316,7 @@ public class ReadReceiver extends BroadcastReceiver {
                 acceptValue = false;
             }
 
-            if (newValue && acceptValue) {
+            if (acceptValue) {
                 //if (!futureValue) {
                 int oldValue = sgv.value;
 

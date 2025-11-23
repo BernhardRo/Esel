@@ -73,7 +73,8 @@ public class LocalBroadcaster {
         json.put("type", "sgv");
         json.put("date", sgv.timestamp);
         json.put("dateString", format.format(sgv.timestamp));
-
+        json.put("created_at", format.format(sgv.timestamp));
+        json.put("source", "Eversense");
         return json;
     }
 
