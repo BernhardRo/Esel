@@ -54,6 +54,7 @@
     <queries>
         <package android:name="com.senseonics.gen12androidapp"/>
         <package android:name="com.senseonics.androidapp"/>
+        <package android:name="com.senseonics.eversense365.ous"/>
         <package android:name="com.eveningoutpost.dexdrip"/>
         <package android:name="info.nightscout.androidaps"/>
     </queries>

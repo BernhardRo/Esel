@@ -30,6 +30,7 @@ public class EsNotificationListener extends NotificationListenerService {
         if (sbn.getPackageName().equals("com.senseonics.gen12androidapp") ||
                 sbn.getPackageName().equals("com.senseonics.androidapp") ||
                 sbn.getPackageName().equals("com.senseonics.eversense365.us") ||
+                sbn.getPackageName().equals("com.senseonics.eversense365.ous") ||
                 sbn.getPackageName().contains("com.senseonics.")
         ) {
             Notification notification = sbn.getNotification();
