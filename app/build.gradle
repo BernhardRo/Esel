@@ -13,10 +13,14 @@ android {
     buildTypes {
         release {
             minifyEnabled false
-            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
     namespace 'esel.esel.esel'
+    // Keep the existing API 30 target until the app's Android compatibility is migrated.
+    lint {
+        disable 'ExpiredTargetSdkVersion'
+    }
 }
 
 dependencies {

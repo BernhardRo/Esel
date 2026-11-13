@@ -24,7 +24,7 @@ private static final String TAG = "KeepAliveReceiver";
     @Override
     public void onReceive(Context context, Intent intent) {
         PowerManager pm = (PowerManager) context.getSystemService(Context.POWER_SERVICE);
-        PowerManager.WakeLock wl = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "");
+        PowerManager.WakeLock wl = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Esel:KeepAliveReceiver");
         wl.acquire();
 
         Log.d(TAG, "onReceive called");
