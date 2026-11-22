@@ -76,7 +76,8 @@ public class ReadReceiver extends BroadcastReceiver {
             //String datastring = Datareader.readData();
 
 
-            long lastReadingTime = SP.getLong("lastReadingTime", currentTime);
+            long firstReadingTime = SP.getBoolean("use_patched_es", true) ? currentTime : -1L;
+            long lastReadingTime = SP.getLong("lastReadingTime", firstReadingTime);
 
             if (lastReadingTime + syncTime < currentTime) {
                 lastReadingTime = currentTime - syncTime;
@@ -237,12 +238,16 @@ public class ReadReceiver extends BroadcastReceiver {
             long updatedReadingTime = lastReadingTime;
 
             boolean use_patched_es = SP.getBoolean("use_patched_es", true);
+            boolean overwriteBg = SP.getBoolean("overwrite_bg", false);
+            if (!use_patched_es && !overwriteBg) {
+                return ProcesssValues(is_continuous_run, EsNotificationListener.getData(lastReadingTime));
+            }
             do {
                 lastReadingTime = updatedReadingTime;
 
                 List<SGV> valueArray = new ArrayList<>();
 
-                if (SP.getBoolean("overwrite_bg", false)) { //send constant values e.g. for debugging purpose
+                if (overwriteBg) { //send constant values e.g. for debugging purpose
 
                     //if(currentTime - lastReadingTime > 30000) {
                         int bg = SP.getInt("bg_value", 120);
@@ -253,17 +258,12 @@ public class ReadReceiver extends BroadcastReceiver {
                     //}
 
 
-                }else if (use_patched_es){
+                }else{
                     valueArray = Datareader.readDataFromContentProvider(context, size, lastReadingTime);
 
                     if (valueArray.size() == 0) {
                         //ToastUtils.makeToast("DB not readable!");
                         EselLog.LogE(TAG,"DB not readable!",true);
-                    }
-                }else {
-                    boolean read_from_nl = true;
-                    if(read_from_nl){
-                        valueArray = EsNotificationListener.getData(size,lastReadingTime);
                     }
                 }
 

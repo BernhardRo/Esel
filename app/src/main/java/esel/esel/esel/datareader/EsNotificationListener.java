@@ -1,11 +1,12 @@
 package esel.esel.esel.datareader;
 
 import android.app.Notification;
+import android.os.Handler;
+import android.os.Looper;
 import android.service.notification.NotificationListenerService;
 import android.service.notification.StatusBarNotification;
-import android.widget.RemoteViews;
 
-import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import esel.esel.esel.util.SP;
@@ -16,8 +17,13 @@ import esel.esel.esel.receivers.ReadReceiver;
  */
 public class EsNotificationListener extends NotificationListenerService {
 
-    private static List<SGV> lastReadings = new ArrayList<SGV>();
+    // Wait for Eversense to replace the previous value with the updated value.
+    private static final long NOTIFICATION_QUIET_PERIOD_MS = 2_000L;
+    private static volatile SGV lastReading;
     private static final ReadReceiver rr = new ReadReceiver();
+    private final Handler handler = new Handler(Looper.getMainLooper());
+    private final NotificationBurst burst = new NotificationBurst();
+    private final Runnable forwardReading = this::forwardReading;
     
     @Override
     public void onNotificationPosted(StatusBarNotification sbn) {
@@ -36,11 +42,10 @@ public class EsNotificationListener extends NotificationListenerService {
             Notification notification = sbn.getNotification();
             if (notification != null && notification.tickerText != null) {
                 try {
-                   SGV sgv = generateSGV(notification,lastReadings.size());
-                   if(sgv != null) {
-                       lastReadings.add(sgv);
-                       rr.CallBroadcast(null);
-                   }
+                    if (burst.offer(generateSGV(notification, 0))) {
+                        handler.removeCallbacks(forwardReading);
+                        handler.postDelayed(forwardReading, NOTIFICATION_QUIET_PERIOD_MS);
+                    }
                 } catch (NumberFormatException err) {
                     err.printStackTrace();
                 }
@@ -52,31 +57,41 @@ public class EsNotificationListener extends NotificationListenerService {
 
     }
 
-    public static List<SGV> getData(int number, long lastReadingTime){
-        List<SGV> result = new ArrayList<SGV>();
-        for (SGV reading:lastReadings) {
-            //if(reading.timestamp > lastReadingTime){
-                result.add(reading);
-            //}
-
+    private void forwardReading() {
+        SGV reading = burst.take();
+        if (reading == null || SP.getBoolean("use_patched_es", true)) {
+            return;
         }
 
-        while (result.size() > number){
-            result.remove(0);
+        SGV previous = lastReading;
+        long fiveMin = 5 * 60 * 1000L;
+        if (previous != null && (reading.timestamp <= previous.timestamp
+                || (reading.raw == previous.raw && reading.timestamp - previous.timestamp < fiveMin))) {
+            return;
         }
 
-        if(result.size() == number){
-            SGV last = lastReadings.get(lastReadings.size()-1);
-            lastReadings.clear();
-            lastReadings.add(last);
-        }
-
-        return  result;
+        lastReading = reading;
+        rr.CallBroadcast(null);
     }
 
-    public static SGV generateSGV(Notification notification ,int record){
+    @Override
+    public void onListenerDisconnected() {
+        handler.removeCallbacks(forwardReading);
+        burst.take();
+        super.onListenerDisconnected();
+    }
+
+    public static List<SGV> getData(long lastReadingTime) {
+        SGV reading = lastReading;
+        if (reading == null || reading.timestamp <= lastReadingTime) {
+            return Collections.emptyList();
+        }
+        return Collections.singletonList(new SGV(reading.raw, reading.timestamp, reading.record));
+    }
+
+    private static SGV generateSGV(Notification notification ,int record){
         long timestamp = notification.when;
-        String tickerText = (String) notification.tickerText;
+        String tickerText = notification.tickerText.toString();
         int value;
         if(tickerText.contains("HI")){
             value =410;
@@ -87,20 +102,24 @@ public class EsNotificationListener extends NotificationListenerService {
             value =Integer.parseInt(tickerText);
         }
 
-        if(lastReadings.size()>0) {
-            long five_min = 300000l;
-            SGV oldSgv = lastReadings.get(lastReadings.size() - 1);
-            long lastreadingtime = oldSgv.timestamp; // SP.getLong("lastreadingtime_nl",timestamp);
-            int lastreadingvalue = oldSgv.raw; //SP.getInt("lastreadingvalue_nl",value);
-            if (value == lastreadingvalue && (lastreadingtime + (five_min )) > timestamp ) { // no new value // 5 min 30 secs grace time
-                return null;
-            }
-        }
-
-       // SP.putLong("lastreadingtime_nl",timestamp);
-        // SP.putInt("lastreadingvalue_nl",value);
-
-        return new SGV(value, timestamp,record);
+        return new SGV(value, timestamp, record);
     }
 
+    static final class NotificationBurst {
+        private SGV pending;
+
+        boolean offer(SGV reading) {
+            if (pending != null && reading.timestamp < pending.timestamp) {
+                return false;
+            }
+            pending = reading;
+            return true;
+        }
+
+        SGV take() {
+            SGV reading = pending;
+            pending = null;
+            return reading;
+        }
+    }
 }
