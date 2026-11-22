@@ -18,6 +18,7 @@ public class EsNotificationListener extends NotificationListenerService {
 
     private static List<SGV> lastReadings = new ArrayList<SGV>();
     private static final ReadReceiver rr = new ReadReceiver();
+    private final SettledNotificationReader settledReader = new SettledNotificationReader(rr);
     
     @Override
     public void onNotificationPosted(StatusBarNotification sbn) {
@@ -36,6 +37,11 @@ public class EsNotificationListener extends NotificationListenerService {
             Notification notification = sbn.getNotification();
             if (notification != null && notification.tickerText != null) {
                 try {
+                    if (SettledNotificationReader.isEnabled()) {
+                        settledReader.onNotificationPosted(notification);
+                        return;
+                    }
+                    settledReader.clear();
                    SGV sgv = generateSGV(notification,lastReadings.size());
                    if(sgv != null) {
                        lastReadings.add(sgv);
@@ -50,6 +56,18 @@ public class EsNotificationListener extends NotificationListenerService {
             }
         }
 
+    }
+
+    @Override
+    public void onListenerDisconnected() {
+        settledReader.clear();
+        super.onListenerDisconnected();
+    }
+
+    @Override
+    public void onDestroy() {
+        settledReader.clear();
+        super.onDestroy();
     }
 
     public static List<SGV> getData(int number, long lastReadingTime){
@@ -76,16 +94,7 @@ public class EsNotificationListener extends NotificationListenerService {
 
     public static SGV generateSGV(Notification notification ,int record){
         long timestamp = notification.when;
-        String tickerText = (String) notification.tickerText;
-        int value;
-        if(tickerText.contains("HI")){
-            value =410;
-        } else if(tickerText.contains(".") || tickerText.contains(",")){ //is mmol/l
-            float valuef = Float.parseFloat(tickerText);
-            value = SGV.Convert(valuef);
-        }else{
-            value =Integer.parseInt(tickerText);
-        }
+        int value = parseTicker((String) notification.tickerText);
 
         if(lastReadings.size()>0) {
             long five_min = 300000l;
@@ -101,6 +110,19 @@ public class EsNotificationListener extends NotificationListenerService {
         // SP.putInt("lastreadingvalue_nl",value);
 
         return new SGV(value, timestamp,record);
+    }
+
+    static int parseTicker(String tickerText) {
+        int value;
+        if(tickerText.contains("HI")){
+            value =410;
+        } else if(tickerText.contains(".") || tickerText.contains(",")){ //is mmol/l
+            float valuef = Float.parseFloat(tickerText);
+            value = SGV.Convert(valuef);
+        }else{
+            value =Integer.parseInt(tickerText);
+        }
+        return value;
     }
 
 }

@@ -31,6 +31,12 @@
         android:defaultValue="false"
         android:summary="Only works with patched ES App. If disabled, data will be collected from the Eversense Notfications (Companion Mode)" />
     
+    <SwitchPreference
+        android:key="settle_eversense_notifications"
+        android:title="Wait for Eversense notification updates"
+        android:defaultValue="false"
+        android:summary="Companion mode only. Wait two seconds from the first reading notification, then forward the newest reading in that window." />
+
     <EditTextPreference
         android:key="max-sync-hours"
         android:title="Max sync hours"
