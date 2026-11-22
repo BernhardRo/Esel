@@ -14,6 +14,7 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import esel.esel.esel.Esel;
@@ -58,6 +59,10 @@ public class ReadReceiver extends BroadcastReceiver {
     }
 
     public void CallBroadcast(Context context){
+        CallBroadcast(context, null);
+    }
+
+    public boolean CallBroadcast(Context context, SGV settledReading) {
         int sync = 8;
         try {
 
@@ -68,6 +73,7 @@ public class ReadReceiver extends BroadcastReceiver {
         }
         long syncTime = sync * 60 * 60 * 1000L;
         long currentTime = System.currentTimeMillis();
+        boolean acceptedSettledReading = false;
 
         try {
 
@@ -77,15 +83,17 @@ public class ReadReceiver extends BroadcastReceiver {
             //String datastring = Datareader.readData();
 
 
-            boolean settledNotifications = !SP.getBoolean("use_patched_es", true)
-                    && SettledNotificationReader.isEnabled();
-            long lastReadingTime = SP.getLong("lastReadingTime", settledNotifications ? -1L : currentTime);
+            long lastReadingTime = SP.getLong("lastReadingTime", currentTime);
 
             if (lastReadingTime + syncTime < currentTime) {
                 lastReadingTime = currentTime - syncTime;
             }
 
-            broadcastData(context, lastReadingTime, true);
+            if (settledReading == null) {
+                broadcastData(context, lastReadingTime, true);
+            } else {
+                acceptedSettledReading = ProcesssValues(true, Collections.singletonList(settledReading)) > 0;
+            }
 
 
         } catch (Exception e) {
@@ -108,6 +116,7 @@ public class ReadReceiver extends BroadcastReceiver {
             EsNowDatareader.updateLogin();
         }
 
+        return acceptedSettledReading;
     }
 
     public void FullSync(Context context, int syncHours){

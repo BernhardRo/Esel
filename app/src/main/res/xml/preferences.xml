@@ -35,7 +35,7 @@
         android:key="settle_eversense_notifications"
         android:title="Wait for Eversense notification updates"
         android:defaultValue="false"
-        android:summary="Companion mode only. Wait briefly for the notification to settle before forwarding its newest glucose reading." />
+        android:summary="Companion mode only. Wait two seconds from the first reading notification, then forward the newest reading in that window." />
 
     <EditTextPreference
         android:key="max-sync-hours"
