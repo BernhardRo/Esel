@@ -20,6 +20,7 @@ import esel.esel.esel.Esel;
 import esel.esel.esel.LogActivity;
 import esel.esel.esel.datareader.Datareader;
 import esel.esel.esel.datareader.EsNotificationListener;
+import esel.esel.esel.datareader.SettledNotificationReader;
 import esel.esel.esel.datareader.EsNowDatareader;
 import esel.esel.esel.datareader.SGV;
 import esel.esel.esel.util.EselLog;
@@ -76,8 +77,9 @@ public class ReadReceiver extends BroadcastReceiver {
             //String datastring = Datareader.readData();
 
 
-            long firstReadingTime = SP.getBoolean("use_patched_es", true) ? currentTime : -1L;
-            long lastReadingTime = SP.getLong("lastReadingTime", firstReadingTime);
+            boolean settledNotifications = !SP.getBoolean("use_patched_es", true)
+                    && SettledNotificationReader.isEnabled();
+            long lastReadingTime = SP.getLong("lastReadingTime", settledNotifications ? -1L : currentTime);
 
             if (lastReadingTime + syncTime < currentTime) {
                 lastReadingTime = currentTime - syncTime;
@@ -238,16 +240,16 @@ public class ReadReceiver extends BroadcastReceiver {
             long updatedReadingTime = lastReadingTime;
 
             boolean use_patched_es = SP.getBoolean("use_patched_es", true);
-            boolean overwriteBg = SP.getBoolean("overwrite_bg", false);
-            if (!use_patched_es && !overwriteBg) {
-                return ProcesssValues(is_continuous_run, EsNotificationListener.getData(lastReadingTime));
+            if (!use_patched_es && SettledNotificationReader.isEnabled()
+                    && !SP.getBoolean("overwrite_bg", false)) {
+                return ProcesssValues(is_continuous_run, SettledNotificationReader.getData(lastReadingTime));
             }
             do {
                 lastReadingTime = updatedReadingTime;
 
                 List<SGV> valueArray = new ArrayList<>();
 
-                if (overwriteBg) { //send constant values e.g. for debugging purpose
+                if (SP.getBoolean("overwrite_bg", false)) { //send constant values e.g. for debugging purpose
 
                     //if(currentTime - lastReadingTime > 30000) {
                         int bg = SP.getInt("bg_value", 120);
@@ -258,12 +260,17 @@ public class ReadReceiver extends BroadcastReceiver {
                     //}
 
 
-                }else{
+                }else if (use_patched_es){
                     valueArray = Datareader.readDataFromContentProvider(context, size, lastReadingTime);
 
                     if (valueArray.size() == 0) {
                         //ToastUtils.makeToast("DB not readable!");
                         EselLog.LogE(TAG,"DB not readable!",true);
+                    }
+                }else {
+                    boolean read_from_nl = true;
+                    if(read_from_nl){
+                        valueArray = EsNotificationListener.getData(size,lastReadingTime);
                     }
                 }
 
