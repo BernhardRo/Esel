@@ -15,8 +15,6 @@ public class SettledNotificationReader {
     private static final long NOTIFICATION_WINDOW_MS = 2_000L;
     private static final long SAME_VALUE_INTERVAL_MS = 5 * 60 * 1000L;
     private static final String PREF_KEY = "settle_eversense_notifications";
-    private static final String LAST_TIMESTAMP_KEY = "last_settled_notification_time";
-    private static final String LAST_RAW_VALUE_KEY = "last_settled_notification_raw";
     private static volatile SGV lastReading;
 
     private final Handler handler = new Handler(Looper.getMainLooper());
@@ -51,7 +49,11 @@ public class SettledNotificationReader {
             return;
         }
 
-        if (!isNewReading(reading, lastAcceptedReading())) {
+        SGV previous = lastReading;
+        long previousTime = previous == null ? SP.getLong("lastReadingTime", -1L) : previous.timestamp;
+        // The receiver already saves the value before smoothing.
+        int previousValue = previous == null ? SP.getInt("lastReadingRaw", -1) : previous.value;
+        if (!canForward(reading, previousTime, previousValue)) {
             return;
         }
 
@@ -61,37 +63,18 @@ public class SettledNotificationReader {
         }
 
         SGV broadcastReading = new SGV(reading.raw, reading.timestamp, reading.record);
-        if (receiver.CallBroadcast(null, broadcastReading)) {
+        if (receiver.CallBroadcast(null, broadcastReading, hasChangedValue(reading, previousValue))) {
             lastReading = reading;
-            SP.sharedPreferences.edit()
-                    .putLong(LAST_TIMESTAMP_KEY, reading.timestamp)
-                    .putInt(LAST_RAW_VALUE_KEY, reading.raw)
-                    .apply();
         }
     }
 
-    private static SGV lastAcceptedReading() {
-        if (lastReading != null) {
-            return lastReading;
-        }
-        long timestamp = SP.getLong(LAST_TIMESTAMP_KEY, -1L);
-        if (timestamp > 0) {
-            return new SGV(SP.getInt(LAST_RAW_VALUE_KEY, -1), timestamp, 0);
-        }
-        // Older builds only saved the receiver's reading. It is raw when smoothing is off.
-        if (!SP.getBoolean("smooth_data", false)) {
-            timestamp = SP.getLong("lastReadingTime", -1L);
-            int value = SP.getInt("lastReadingValue", -1);
-            if (timestamp > 0 && value >= 39) {
-                return new SGV(value, timestamp, 0);
-            }
-        }
-        return null;
+    static boolean hasChangedValue(SGV reading, int previousValue) {
+        return previousValue >= 39 && reading.value != previousValue;
     }
 
-    static boolean isNewReading(SGV reading, SGV previous) {
-        return previous == null || (reading.timestamp > previous.timestamp
-                && (reading.raw != previous.raw || reading.timestamp - previous.timestamp >= SAME_VALUE_INTERVAL_MS));
+    static boolean canForward(SGV reading, long previousTime, int previousValue) {
+        return reading.timestamp > previousTime && (reading.value != previousValue
+                || reading.timestamp - previousTime >= SAME_VALUE_INTERVAL_MS);
     }
 
     public static List<SGV> getData(long lastReadingTime) {

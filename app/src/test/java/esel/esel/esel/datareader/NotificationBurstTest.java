@@ -13,8 +13,8 @@ public class NotificationBurstTest {
     @Test
     public void newerReadingReplacesPendingReadingWithoutRestartingWindow() {
         SettledNotificationReader.NotificationBurst burst = new SettledNotificationReader.NotificationBurst();
-        SGV previousValue = new SGV(110, 1_000L, 0);
-        SGV updatedValue = new SGV(118, 1_246L, 0);
+        SGV previousValue = new SGV(157, 1_000L, 0);
+        SGV updatedValue = new SGV(158, 1_246L, 0);
 
         assertTrue(burst.offerAndStartWindow(previousValue, NOW));
         assertFalse(burst.offerAndStartWindow(updatedValue, NOW));
@@ -81,13 +81,34 @@ public class NotificationBurstTest {
     }
 
     @Test
-    public void replayedValueAfterRestartDoesNotDisplaceNextReading() {
-        SGV lastAccepted = new SGV(126, 1_000L, 0);
-        SGV repost = new SGV(126, 245_557L, 0);
-        SGV updated = new SGV(130, 300_914L, 0);
+    public void changedValueInSeparateBurstCanBypassTheFourMinuteRule() {
+        SGV updated = new SGV(130, 56_357L, 0);
 
-        assertFalse(SettledNotificationReader.isNewReading(repost, lastAccepted));
-        assertTrue(SettledNotificationReader.isNewReading(updated, lastAccepted));
-        assertTrue(SettledNotificationReader.isNewReading(new SGV(126, 301_000L, 0), lastAccepted));
+        assertTrue(SettledNotificationReader.canForward(updated, 1_000L, 126));
+        assertTrue(SettledNotificationReader.hasChangedValue(updated, 126));
+    }
+
+    @Test
+    public void unchangedValueKeepsItsRepeatInterval() {
+        SGV repost = new SGV(126, 245_557L, 0);
+        SGV nextReading = new SGV(126, 301_000L, 0);
+
+        assertFalse(SettledNotificationReader.canForward(repost, 1_000L, 126));
+        assertTrue(SettledNotificationReader.canForward(nextReading, 1_000L, 126));
+        assertFalse(SettledNotificationReader.hasChangedValue(repost, 126));
+    }
+
+    @Test
+    public void changedValueStillNeedsANewerTimestamp() {
+        assertFalse(SettledNotificationReader.canForward(new SGV(130, 999L, 0), 1_000L, 126));
+        assertFalse(SettledNotificationReader.canForward(new SGV(130, 1_000L, 0), 1_000L, 126));
+    }
+
+    @Test
+    public void unknownPreviousValueDoesNotBypassTheFourMinuteRule() {
+        SGV reading = new SGV(130, 2_000L, 0);
+
+        assertTrue(SettledNotificationReader.canForward(reading, 1_000L, -1));
+        assertFalse(SettledNotificationReader.hasChangedValue(reading, -1));
     }
 }

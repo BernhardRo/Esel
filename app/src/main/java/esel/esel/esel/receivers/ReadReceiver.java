@@ -59,10 +59,10 @@ public class ReadReceiver extends BroadcastReceiver {
     }
 
     public void CallBroadcast(Context context){
-        CallBroadcast(context, null);
+        CallBroadcast(context, null, false);
     }
 
-    public boolean CallBroadcast(Context context, SGV settledReading) {
+    public boolean CallBroadcast(Context context, SGV settledReading, boolean allowShortInterval) {
         int sync = 8;
         try {
 
@@ -92,7 +92,7 @@ public class ReadReceiver extends BroadcastReceiver {
             if (settledReading == null) {
                 broadcastData(context, lastReadingTime, true);
             } else {
-                acceptedSettledReading = ProcesssValues(true, Collections.singletonList(settledReading)) > 0;
+                acceptedSettledReading = ProcesssValues(true, Collections.singletonList(settledReading), allowShortInterval) > 0;
             }
 
 
@@ -307,6 +307,10 @@ public class ReadReceiver extends BroadcastReceiver {
     }
 
     private int ProcesssValues( boolean is_continuous_run, List<SGV> valueArray) {
+        return ProcesssValues(is_continuous_run, valueArray, false);
+    }
+
+    private int ProcesssValues(boolean is_continuous_run, List<SGV> valueArray, boolean allowShortInterval) {
         int result = 0;
 
         long currentTime = System.currentTimeMillis();
@@ -327,7 +331,7 @@ public class ReadReceiver extends BroadcastReceiver {
                 acceptValue = false;
             }
 
-            if(sgv.timestamp - oldTime < fourMin){
+            if(sgv.timestamp - oldTime < fourMin && (!allowShortInterval || sgv.timestamp <= oldTime)){
                 EselLog.LogW(TAG,"broadcastData called, value ignored as it is not older than 4 min: " + sgv.value + ", timestamp: " + sgv.timestamp);
                 acceptValue = false;
             }
